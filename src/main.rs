@@ -1,10 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
-const SLOWMOTION : bool = false;
+const SLOWMOTION : bool = true;
 const REALTIMEPRINT : bool = true;
 
 const SUPERSLOW : u64 = 1000;
-const KINDASLOW : u64 = 25;
+const KINDASLOW : u64 = 10;
 
 #[derive(Copy)]
 #[derive(Clone)]
@@ -256,6 +256,7 @@ fn generate_map(window : &mut pancurses::Window)
     let mut seed = (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()/100) as u64;
     
     window.mvaddstr(window.get_max_y()-1, 0, format!("using seed {}", seed));
+    window.refresh();
     if SLOWMOTION && REALTIMEPRINT
     {
         std::thread::sleep(std::time::Duration::from_millis(SUPERSLOW));
@@ -689,7 +690,7 @@ fn generate_map(window : &mut pancurses::Window)
         }
     }
     
-    window.mvaddstr(0, 0, "done   press q to quit               ");
+    window.mvaddstr(0, 0, "done   press q to quit, r to regenerate       ");
     
     cells.print(window, entrance, exit, expander_w, expander_h);
 }
@@ -697,9 +698,17 @@ fn generate_map(window : &mut pancurses::Window)
 fn main()
 {
     let mut window = pancurses::initscr();
-    window.nodelay(true);
-    generate_map(&mut window);
-    window.nodelay(false);
-    window.getch();
+    loop
+    {
+        window.erase();
+        window.nodelay(true);
+        generate_map(&mut window);
+        window.nodelay(false);
+        if let Some(pancurses::Input::Character('r')) = window.getch()
+        {
+            continue;
+        }
+        break;
+    }
     pancurses::endwin();
 }
