@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 const SLOWMOTION : bool = false;
-const REALTIMEPRINT : bool = true;
+const REALTIMEPRINT : bool = false;
 
 const SUPERSLOW : u64 = 1000;
 const KINDASLOW : u64 = 25;
@@ -244,7 +244,9 @@ impl Cells
 fn generate_map()
 {
     #[allow(unused_mut)]
+    #[allow(unused_assignments)]
     let mut seed = (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()/100) as u64;
+    seed = 15974285795;
     
     println!("using seed {}", seed);
     if SLOWMOTION && REALTIMEPRINT
@@ -316,10 +318,18 @@ fn generate_map()
         cells.print((!0, !0), (!0, !0), expander_w, expander_h);
     }
     
-    let start_x = fastrand::u32(..w*2)/2*2;
-    let start_y = fastrand::u32(..h*2)/2*2;
+    let start_x = fastrand::u32(..w)*2;
+    let start_y = fastrand::u32(..h)*2;
     
+    for x in std::cmp::max(0, start_x as i32 - 4) as u32..=std::cmp::min(virt_w-1, start_x + 4)
+    {
+        for y in std::cmp::max(0, start_y as i32 - 4) as u32..=std::cmp::min(virt_h-1, start_y + 4)
+        {
+            cells.set(x, y, Cell::Null);
+        }
+    }
     cells.set(start_x, start_y, Cell::Open);
+    
     println!("set {},{} to open", start_x, start_y);
     cells.repaint_walls();
     
@@ -602,7 +612,10 @@ fn generate_map()
                         {
                             cells.set(x, y, Cell::Closed);
                             cells.set(x-1, y, Cell::Closed);
-                            cells.print(entrance, exit, expander_w, expander_h);
+                            if REALTIMEPRINT
+                            {
+                                cells.print(entrance, exit, expander_w, expander_h);
+                            }
                         }
                     }
                     else if x < virt_w-1 && cells.get(x+1, y) == Cell::Open
@@ -623,7 +636,10 @@ fn generate_map()
                         {
                             cells.set(x, y, Cell::Closed);
                             cells.set(x+1, y, Cell::Closed);
-                            cells.print(entrance, exit, expander_w, expander_h);
+                            if REALTIMEPRINT
+                            {
+                                cells.print(entrance, exit, expander_w, expander_h);
+                            }
                         }
                     }
                     else if y > 0 && cells.get(x, y-1) == Cell::Open
@@ -644,7 +660,10 @@ fn generate_map()
                         {
                             cells.set(x, y, Cell::Closed);
                             cells.set(x, y-1, Cell::Closed);
-                            cells.print(entrance, exit, expander_w, expander_h);
+                            if REALTIMEPRINT
+                            {
+                                cells.print(entrance, exit, expander_w, expander_h);
+                            }
                         }
                     }
                     else if y < virt_w-1 && cells.get(x, y+1) == Cell::Open
@@ -665,7 +684,10 @@ fn generate_map()
                         {
                             cells.set(x, y, Cell::Closed);
                             cells.set(x, y+1, Cell::Closed);
-                            cells.print(entrance, exit, expander_w, expander_h);
+                            if REALTIMEPRINT
+                            {
+                                cells.print(entrance, exit, expander_w, expander_h);
+                            }
                         }
                     }
                 }
