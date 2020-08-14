@@ -1,7 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
-const SLOWMOTION : bool = false;
-const REALTIMEPRINT : bool = false;
+const SLOWMOTION : bool = true;
+const REALTIMEPRINT : bool = true;
+
+const SUPERSLOW : u64 = 1000;
+const KINDASLOW : u64 = 50;
 
 #[derive(Copy)]
 #[derive(Clone)]
@@ -151,11 +154,12 @@ impl Cells
     }
     fn print(&self, entrance : (u32, u32), exit : (u32, u32), expander_w : u32, expander_h : u32)
     {
+        let mut output = "".to_string();
         for y in 0..self.h
         {
             for i in 0..if y%2 == 0 { expander_h } else { 1 }
             {
-                print!("    ");
+                output += &"    ";
                 for x in 0..self.w
                 {
                     let cell_paint = self.get(x, y);
@@ -165,30 +169,30 @@ impl Cells
                         {
                             if (x, y) == entrance && entrance == exit && i == expander_h/2 && j == expander_w/2
                             {
-                                print!("EX");
+                                output += &"EX";
                             }
                             else if (x, y) == entrance && i == expander_h/2 && j == expander_w/2
                             {
-                                print!("EE");
+                                output += &"EE";
                             }
                             else if (x, y) == exit && i == expander_h/2 && j == expander_w/2
                             {
-                                print!("XX");
+                                output += &"XX";
                             }
                             else if x%2 == y%2 || i == expander_h/2 || j == expander_w/2
                             {
-                                print!("██");
+                                output += &"██";
                             }
                             else if x%2 == 1
                             {
                                 if y > 0 && self.get(x, y-1) == Cell::Open
                                 || y+1 < self.h && self.get(x, y+1) == Cell::Open
                                 {
-                                    print!("██");
+                                    output += &"██";
                                 }
                                 else
                                 {
-                                    print!("  ");
+                                    output += &"  ";
                                 }
                             }
                             else if y%2 == 1
@@ -196,39 +200,40 @@ impl Cells
                                 if x > 0 && self.get(x-1, y) == Cell::Open
                                 || x+1 < self.w && self.get(x+1, y) == Cell::Open
                                 {
-                                    print!("██");
+                                    output += &"██";
                                 }
                                 else
                                 {
-                                    print!("  ");
+                                    output += &"  ";
                                 }
                             }
                             else
                             {
-                                print!("  ");
+                                output += &"  ";
                             }
                         }
                         else if cell_paint == Cell::Accessible
                         {
-                            print!("░░");
+                            output += &"░░";
                         }
                         else if cell_paint == Cell::Null
                         {
-                            print!("..");
+                            output += &"..";
                         }
                         else
                         {
-                            print!("  ");
+                            output += &"  ";
                         }
                     }
                 }
-                println!();
+                output += &"\n";
             }
         }
-        println!();
+        output += &"\n";
+        print!("{}", output);
         if SLOWMOTION && REALTIMEPRINT
         {
-            std::thread::sleep(std::time::Duration::from_millis(50));
+            std::thread::sleep(std::time::Duration::from_millis(KINDASLOW));
         }
     }
 }
@@ -241,7 +246,7 @@ fn generate_map()
     println!("using seed {}", seed);
     if SLOWMOTION && REALTIMEPRINT
     {
-        std::thread::sleep(std::time::Duration::from_millis(1000));
+        std::thread::sleep(std::time::Duration::from_millis(SUPERSLOW));
     }
     fastrand::seed(seed);
     
@@ -321,7 +326,7 @@ fn generate_map()
         cells.print((!0, !0), (!0, !0), expander_w, expander_h);
         if SLOWMOTION
         {
-            std::thread::sleep(std::time::Duration::from_millis(1000));
+            std::thread::sleep(std::time::Duration::from_millis(SUPERSLOW));
         }
     }
     
@@ -339,7 +344,7 @@ fn generate_map()
     
     if SLOWMOTION && REALTIMEPRINT
     {
-        std::thread::sleep(std::time::Duration::from_millis(1000));
+        std::thread::sleep(std::time::Duration::from_millis(SUPERSLOW));
     }
     
     let random_open_cell = ||
@@ -373,16 +378,16 @@ fn generate_map()
         println!("failed...");
     }
     
-    println!("placing loops");
-    
     if REALTIMEPRINT
     {
         cells.print(entrance, exit, expander_w, expander_h);
-        
-        if SLOWMOTION
-        {
-            std::thread::sleep(std::time::Duration::from_millis(1000));
-        }
+    }
+    
+    println!("placing loops");
+    
+    if REALTIMEPRINT && SLOWMOTION
+    {
+        std::thread::sleep(std::time::Duration::from_millis(SUPERSLOW));
     }
     
     for y in 0..virt_h
@@ -403,13 +408,24 @@ fn generate_map()
                     cells.set(x, y-1, Cell::Open);
                     cells.set(x, y+1, Cell::Open);
                 }
+                if REALTIMEPRINT
+                {
+                    cells.print(entrance, exit, expander_w, expander_h);
+                }
             }
         }
     }
-    println!("deleting islands");
+    
     if REALTIMEPRINT
     {
         cells.print(entrance, exit, expander_w, expander_h);
+    }
+    
+    println!("deleting islands");
+    
+    if REALTIMEPRINT && SLOWMOTION
+    {
+        std::thread::sleep(std::time::Duration::from_millis(SUPERSLOW));
     }
     
     
@@ -512,6 +528,10 @@ fn generate_map()
             for (x, y) in island.iter()
             {
                 cells.set(*x, *y, Cell::Open);
+            }
+            if REALTIMEPRINT
+            {
+                cells.print(entrance, exit, expander_w, expander_h);
             }
         }
     }
