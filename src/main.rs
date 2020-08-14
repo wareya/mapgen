@@ -245,19 +245,18 @@ fn generate_map()
     }
     fastrand::seed(seed);
     
-    let w : u32 = 6;
-    let h : u32 = 5;
+    let w : u32 = 16;
+    let h : u32 = 16;
+    
     let loop_density = 20;
-    let loop_deletion_chance = 50;
-    let max_island_cull = 2;
-    let expander_w = 5;
-    let expander_h = 3;
+    let loop_deletion_chance = 75;
+    let max_island_cull = 25;
+    let chance_preclosed = 20;
+    let completion_amount_min = 80;
+    let completion_amount_max = 100;
     
-    let chance_preclosed = 10;
-    
-    let completion_amount_min = 60;
-    let completion_amount_max = 80;
-    
+    let expander_w = 1;
+    let expander_h = 1;
     
     let completion_amount =
     if completion_amount_max == completion_amount_min
@@ -315,6 +314,8 @@ fn generate_map()
     println!("set {},{} to open", start_x, start_y);
     cells.repaint_walls();
     
+    println!("generating layout");
+    
     if REALTIMEPRINT
     {
         cells.print((!0, !0), (!0, !0), expander_w, expander_h);
@@ -334,14 +335,12 @@ fn generate_map()
         }
     }
     
-    println!("done with layout");
+    println!("placing entrance/exit");
     
     if SLOWMOTION && REALTIMEPRINT
     {
         std::thread::sleep(std::time::Duration::from_millis(1000));
     }
-    
-    println!("placing entrance/exit");
     
     let random_open_cell = ||
     {
@@ -373,6 +372,9 @@ fn generate_map()
     {
         println!("failed...");
     }
+    
+    println!("placing loops");
+    
     if REALTIMEPRINT
     {
         cells.print(entrance, exit, expander_w, expander_h);
@@ -382,8 +384,6 @@ fn generate_map()
             std::thread::sleep(std::time::Duration::from_millis(1000));
         }
     }
-    
-    println!("placing loops");
     
     for y in 0..virt_h
     {
@@ -406,12 +406,12 @@ fn generate_map()
             }
         }
     }
+    println!("deleting islands");
     if REALTIMEPRINT
     {
         cells.print(entrance, exit, expander_w, expander_h);
     }
     
-    println!("deleting islands");
     
     let mut edge_walls = HashSet::new();
     for y in 0..virt_h
@@ -420,12 +420,20 @@ fn generate_map()
         {
             edge_walls.insert((0, y));
         }
+        if cells.get(virt_w-1, y) != Cell::Open
+        {
+            edge_walls.insert((virt_w-1, y));
+        }
     }
     for x in 0..virt_w
     {
         if cells.get(x, 0) != Cell::Open
         {
             edge_walls.insert((x, 0));
+        }
+        if cells.get(x, virt_h-1) != Cell::Open
+        {
+            edge_walls.insert((x, virt_h-1));
         }
     }
     
