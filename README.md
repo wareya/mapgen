@@ -12,6 +12,8 @@ Licensed under either of
 
 at your option. Included under License-Apache-2.0.txt and License-MIT.txt.
 
+Copyright 2020 "Wareya" (wareya@gmail.com)
+
 ### Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
