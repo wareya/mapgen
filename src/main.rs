@@ -275,6 +275,7 @@ fn generate_map(window : &mut pancurses::Window)
     let completion_amount_min = 80;
     let completion_amount_max = 100;
     let tiny_dead_end_deletion_rate = 80;
+    let blockage_radius : i32 = 4;
     
     let expander_w = 1;
     let expander_h = 1;
@@ -341,9 +342,9 @@ fn generate_map(window : &mut pancurses::Window)
     let start_x = fastrand::u32(..w)*2;
     let start_y = fastrand::u32(..h)*2;
     
-    for x in std::cmp::max(0, start_x as i32 - 4) as u32..=std::cmp::min(virt_w-1, start_x + 4)
+    for x in std::cmp::max(0, start_x as i32 - blockage_radius) as u32..=std::cmp::min(virt_w-1, start_x + blockage_radius as u32)
     {
-        for y in std::cmp::max(0, start_y as i32 - 4) as u32..=std::cmp::min(virt_h-1, start_y + 4)
+        for y in std::cmp::max(0, start_y as i32 - blockage_radius) as u32..=std::cmp::min(virt_h-1, start_y + blockage_radius as u32)
         {
             cells.set(x, y, Cell::Null);
         }
