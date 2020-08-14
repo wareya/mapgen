@@ -6,15 +6,6 @@ use std::cell::RefCell;
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
-enum CellKind
-{
-    Cell,
-    Wall,
-}
-#[derive(Copy)]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
 enum CellPaint
 {
     Null,
@@ -23,20 +14,21 @@ enum CellPaint
     Closed // walls only
 }
 
+#[derive(Copy)]
 #[derive(Clone)]
 #[derive(Debug)]
+#[derive(PartialEq)]
 struct Cell
 {
     coord : (u32, u32),
-    kind : CellKind,
     paint : CellPaint
 }
 
 impl Cell
 {
-    fn new(coord: (u32, u32), kind : CellKind) -> Cell
+    fn new(coord: (u32, u32)) -> Cell
     {
-        Cell{coord, kind, paint : CellPaint::Null}
+        Cell{coord, paint : CellPaint::Null}
     }
 }
 
@@ -44,20 +36,18 @@ fn main()
 {
     let w : u32 = 8;
     let h : u32 = 8;
+    let loop_density = 20;
+    let open_space_chance = 100;
     
     let virt_w : u32 = w*2-1;
     let virt_h : u32 = h*2-1;
     
-    let mut cells = HashMap::<(u32, u32), Cell>::new();
-    let mut cell_insert = |x, y|
+    let cells = RefCell::new(HashMap::new());
+    let cell_insert = |x, y|
     {
+        let mut cells = cells.borrow_mut();
         let coord = (x, y);
-        match (x%2, y%2)
-        {
-            (0, 0) => cells.insert(coord, Cell::new(coord, CellKind::Cell)),
-            (1, 1) => None,
-            _ => cells.insert(coord, Cell::new(coord, CellKind::Wall))
-        }
+        cells.insert(coord, Cell::new(coord))
     };
     
     for x in 0..virt_w
@@ -67,12 +57,10 @@ fn main()
             cell_insert(x, y);
         }
     }
-    let start_x = fastrand::usize(..w as usize) as u32 * 2;
-    let start_y = fastrand::usize(..h as usize) as u32 * 2;
+    let start_x = fastrand::u32(..w*2)/2*2;
+    let start_y = fastrand::u32(..h*2)/2*2;
     
-    cells.get_mut(&(start_x, start_y)).unwrap().paint = CellPaint::Open;
-    
-    let cells = RefCell::new(cells);
+    cells.borrow_mut().get_mut(&(start_x, start_y)).unwrap().paint = CellPaint::Open;
     
     let repaint_walls = ||
     {
@@ -120,7 +108,7 @@ fn main()
         let mut open_walls = Vec::<(u32, u32)>::new();
         for (coord, cell) in cells.iter()
         {
-            if cell.kind == CellKind::Wall && cell.paint == CellPaint::Accessible
+            if cell.paint == CellPaint::Accessible
             {
                 open_walls.push(*coord);
             }
@@ -171,24 +159,82 @@ fn main()
         repaint_walls();
         open_wall();
     }
-    let cells = cells.into_inner();
-    for x in 0..virt_w
+    for y in 0..virt_h
     {
-        for y in 0..virt_h
+        for x in 0..virt_w
+        {
+            // randomly add in loops
+            if x%2 != y%2 && fastrand::u32(..100) < loop_density
+            {
+                cells.borrow_mut().get_mut(&(x, y)).unwrap().paint = CellPaint::Open;
+            }
+        }
+    }
+    for y in 0..virt_h
+    {
+        for x in 0..virt_w
         {
             if x%2 == 1 && y%2 == 1
             {
-                print!(" ");
-                continue;
+                let a_paint = cells.borrow().get(&(x-1, y)).unwrap().paint;
+                let b_paint = cells.borrow().get(&(x+1, y)).unwrap().paint;
+                let c_paint = cells.borrow().get(&(x, y-1)).unwrap().paint;
+                let d_paint = cells.borrow().get(&(x, y+1)).unwrap().paint;
+                match (a_paint, b_paint, c_paint, d_paint)
+                {
+                    (CellPaint::Open, CellPaint::Open, CellPaint::Open, CellPaint::Open) =>
+                    {
+                        if fastrand::u32(..100) < open_space_chance
+                        {
+                            cells.borrow_mut().get_mut(&(x, y)).unwrap().paint = CellPaint::Open;
+                        }
+                    }
+                    _ => {}
+                }
             }
-            let cell = cells.get(&(x, y)).unwrap();
-            if cell.paint == CellPaint::Open
+        }
+    }
+    
+    let random_cell = ||
+    {
+        (fastrand::u32(..w*2)/2*2, fastrand::u32(..w*2)/2*2)
+    };
+    let cell_dist = |a : (u32, u32), b : (u32, u32)|
+    {
+        ((a.0 as i32 - b.0 as i32).abs(), (a.1 as i32 - b.1 as i32).abs())
+    };
+    let entrance = random_cell();
+    let mut exit = random_cell();
+    let mut dist = cell_dist(entrance, exit);
+    while (dist.0 as u32) < w/2 || (dist.1 as u32) < h/2
+    {
+        exit = random_cell();
+        dist = cell_dist(entrance, exit);
+    }
+    
+    for y in 0..virt_h
+    {
+        for x in 0..virt_w
+        {
+            let cell = cells.borrow().get(&(x, y)).unwrap().paint;
+            if cell == CellPaint::Open
             {
-                print!("#");
+                if (x, y) == entrance
+                {
+                    print!("█E");
+                }
+                else if (x, y) == exit
+                {
+                    print!("X█");
+                }
+                else
+                {
+                    print!("██");
+                }
             }
             else
             {
-                print!(" ");
+                print!("  ");
             }
         }
         println!();
