@@ -1,82 +1,67 @@
-use std::collections::{HashMap};
-use std::cell::RefCell;
+use std::collections::{HashMap, HashSet};
 
+const SLOWMOTION : bool = false;
+const REALTIMEPRINT : bool = false;
 
 #[derive(Copy)]
 #[derive(Clone)]
 #[derive(Debug)]
 #[derive(PartialEq)]
-enum CellPaint
+enum Cell
 {
     Null,
     Open,
     Accessible,
-    Closed // walls only
+    Closed,
+    ForceClosed // walls only
+}
+struct Cells
+{
+    cells : HashMap<(u32, u32), Cell>,
+    w : u32,
+    h : u32
 }
 
-#[derive(Copy)]
-#[derive(Clone)]
-#[derive(Debug)]
-#[derive(PartialEq)]
-struct Cell
+impl Cells
 {
-    coord : (u32, u32),
-    paint : CellPaint
-}
-
-impl Cell
-{
-    fn new(coord: (u32, u32)) -> Cell
+    fn new(w : u32, h : u32) -> Cells
     {
-        Cell{coord, paint : CellPaint::Null}
-    }
-}
-
-fn generate_map()
-{
-    let w : u32 = 8;
-    let h : u32 = 8;
-    let loop_density = 20;
-    let open_space_chance = 100;
-    
-    let virt_w : u32 = w*2-1;
-    let virt_h : u32 = h*2-1;
-    
-    let cells = RefCell::new(HashMap::new());
-    let cell_insert = |x, y|
-    {
-        let mut cells = cells.borrow_mut();
-        let coord = (x, y);
-        cells.insert(coord, Cell::new(coord))
-    };
-    
-    for x in 0..virt_w
-    {
-        for y in 0..virt_h
+        let mut cells = HashMap::new();
+        for x in 0..w
         {
-            cell_insert(x, y);
+            for y in 0..h
+            {
+                cells.insert((x, y), Cell::Null);
+            }
         }
+        Cells{cells, w, h}
     }
-    let start_x = fastrand::u32(..w*2)/2*2;
-    let start_y = fastrand::u32(..h*2)/2*2;
-    
-    cells.borrow_mut().get_mut(&(start_x, start_y)).unwrap().paint = CellPaint::Open;
-    
-    let repaint_walls = ||
+    fn get(&self, x : u32, y : u32) -> Cell
     {
-        let mut cells = cells.borrow_mut();
+        *self.cells.get(&(x, y)).unwrap()
+    }
+    fn contains(&self, x : u32, y : u32) -> bool
+    {
+        self.cells.contains_key(&(x, y))
+    }
+    fn set(&mut self, x : u32, y : u32, cell : Cell)
+    {
+        *self.cells.get_mut(&(x, y)).unwrap() = cell;
+    }
+    fn repaint_walls(&mut self)
+    {
         // paint Null walls next to open cells as Accessible
-        for x in 0..virt_w
+        for x in 0..self.w
         {
-            for y in 0..virt_h
+            for y in 0..self.h
             {
                 if x%2 == y%2 // skip non-walls
                 {
                     continue;
                 }
                 // skip already-opened walls
-                let self_paint = &cells.get(&(x, y)).unwrap().paint;
-                if *self_paint == CellPaint::Open
+                let self_paint = self.get(x, y);
+                if self_paint == Cell::Open
                 {
                     continue;
                 }
@@ -84,31 +69,30 @@ fn generate_map()
                 let b_paint;
                 if x%2 == 1 // wall with a cell on the left and a cell on the right
                 {
-                    a_paint = &cells.get(&(x-1, y)).unwrap().paint;
-                    b_paint = &cells.get(&(x+1, y)).unwrap().paint;
+                    a_paint = self.get(x-1, y);
+                    b_paint = self.get(x+1, y);
                 }
                 else
                 {
-                    a_paint = &cells.get(&(x, y-1)).unwrap().paint;
-                    b_paint = &cells.get(&(x, y+1)).unwrap().paint;
+                    a_paint = self.get(x, y-1);
+                    b_paint = self.get(x, y+1);
                 }
                 
                 match (a_paint, b_paint)
                 {
-                    (CellPaint::Open, CellPaint::Open) => cells.get_mut(&(x, y)).unwrap().paint = CellPaint::Closed,
-                    (_, CellPaint::Open) | (CellPaint::Open, _) => cells.get_mut(&(x, y)).unwrap().paint = CellPaint::Accessible,
+                    (Cell::Open, Cell::Open) => self.set(x, y, Cell::Closed),
+                    (Cell::Null, Cell::Open) | (Cell::Open, Cell::Null) => self.set(x, y, Cell::Accessible),
                     _ => {}
                 };
             }
         }
-    };
-    let open_wall = ||
+    }
+    fn open_wall(&mut self)
     {
-        let mut cells = cells.borrow_mut();
         let mut open_walls = Vec::<(u32, u32)>::new();
-        for (coord, cell) in cells.iter()
+        for (coord, cell) in self.cells.iter()
         {
-            if cell.paint == CellPaint::Accessible
+            if *cell == Cell::Accessible
             {
                 open_walls.push(*coord);
             }
@@ -117,135 +101,420 @@ fn generate_map()
         {
             return;
         }
-        let coord = open_walls.get(fastrand::usize(..open_walls.len())).unwrap();
-        cells.get_mut(&coord).unwrap().paint = CellPaint::Open;
-        
-        let (x, y) = *coord;
+        let (x, y) = open_walls[fastrand::usize(..open_walls.len())];
+        self.set(x, y, Cell::Open);
         if x%2 == 1
         {
-            cells.get_mut(&(x-1, y)).unwrap().paint = CellPaint::Open;
-            cells.get_mut(&(x+1, y)).unwrap().paint = CellPaint::Open;
+            self.set(x-1, y, Cell::Open);
+            self.set(x+1, y, Cell::Open);
         }
         else
         {
-            cells.get_mut(&(x, y-1)).unwrap().paint = CellPaint::Open;
-            cells.get_mut(&(x, y+1)).unwrap().paint = CellPaint::Open;
+            self.set(x, y-1, Cell::Open);
+            self.set(x, y+1, Cell::Open);
         }
-    };
-    let is_done = ||
+    }
+    fn is_done(&self, amount : u32 /* minimum cmopletion out of 100 */) -> bool
     {
-        let cells = cells.borrow();
-        
-        let mut truth = true;
-        for x in 0..virt_w
+        let mut filled = 0;
+        let mut max_filled = 0;
+        let mut accessible = 0;
+        for x in 0..self.w
         {
-            for y in 0..virt_h
+            for y in 0..self.h
             {
                 if x%2 == 1 && y%2 == 1
                 {
                     continue;
                 }
-                let paint = cells.get(&(x, y)).unwrap().paint;
-                if paint == CellPaint::Null || paint == CellPaint::Accessible
+                let paint = self.get(x, y);
+                
+                if paint != Cell::ForceClosed
                 {
-                    truth = false;
+                    max_filled += 1;
+                }
+                if paint == Cell::Open || paint == Cell::Closed 
+                {
+                    filled += 1;
+                }
+                if paint == Cell::Accessible
+                {
+                    accessible += 1;
                 }
             }
         }
-        truth
-    };
-    while !is_done()
-    {
-        repaint_walls();
-        open_wall();
+        if accessible == 0
+        {
+            println!("accessible is 0");
+        }
+        return filled*100/max_filled >= amount || accessible == 0;
     }
+    fn print(&self, entrance : (u32, u32), exit : (u32, u32), expander_w : u32, expander_h : u32)
+    {
+        for y in 0..self.h
+        {
+            for i in 0..if y%2 == 0 { expander_h } else { 1 }
+            {
+                print!("    ");
+                for x in 0..self.w
+                {
+                    let cell_paint = self.get(x, y);
+                    for j in 0..if x%2 == 0 { expander_w } else { 1 }
+                    {
+                        if cell_paint == Cell::Open
+                        {
+                            if (x, y) == entrance && entrance == exit && i == expander_h/2 && j == expander_w/2
+                            {
+                                print!("EX");
+                            }
+                            else if (x, y) == entrance && i == expander_h/2 && j == expander_w/2
+                            {
+                                print!("EE");
+                            }
+                            else if (x, y) == exit && i == expander_h/2 && j == expander_w/2
+                            {
+                                print!("XX");
+                            }
+                            else if x%2 == y%2 || i == expander_h/2 || j == expander_w/2
+                            {
+                                print!("██");
+                            }
+                            else if x%2 == 1
+                            {
+                                if y > 0 && self.get(x, y-1) == Cell::Open
+                                || y+1 < self.h && self.get(x, y+1) == Cell::Open
+                                {
+                                    print!("██");
+                                }
+                                else
+                                {
+                                    print!("  ");
+                                }
+                            }
+                            else if y%2 == 1
+                            {
+                                if x > 0 && self.get(x-1, y) == Cell::Open
+                                || x+1 < self.w && self.get(x+1, y) == Cell::Open
+                                {
+                                    print!("██");
+                                }
+                                else
+                                {
+                                    print!("  ");
+                                }
+                            }
+                            else
+                            {
+                                print!("  ");
+                            }
+                        }
+                        else if cell_paint == Cell::Accessible
+                        {
+                            print!("░░");
+                        }
+                        else if cell_paint == Cell::Null
+                        {
+                            print!("..");
+                        }
+                        else
+                        {
+                            print!("  ");
+                        }
+                    }
+                }
+                println!();
+            }
+        }
+        println!();
+        if SLOWMOTION && REALTIMEPRINT
+        {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+    }
+}
+
+fn generate_map()
+{
+    #[allow(unused_mut)]
+    let mut seed = (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()/100) as u64;
+    
+    println!("using seed {}", seed);
+    if SLOWMOTION && REALTIMEPRINT
+    {
+        std::thread::sleep(std::time::Duration::from_millis(1000));
+    }
+    fastrand::seed(seed);
+    
+    let w : u32 = 6;
+    let h : u32 = 5;
+    let loop_density = 20;
+    let open_space_chance = 50;
+    let max_island_cull = 2;
+    let expander_w = 5;
+    let expander_h = 3;
+    
+    let chance_preclosed = 10;
+    
+    let completion_amount_min = 60;
+    let completion_amount_max = 80;
+    
+    
+    let completion_amount =
+    if completion_amount_max == completion_amount_min
+    {
+        completion_amount_min
+    }
+    else
+    {
+        completion_amount_min + fastrand::u32(..(completion_amount_max-completion_amount_min))
+    };
+    
+    
+    let virt_w : u32 = w*2-1;
+    let virt_h : u32 = h*2-1;
+    
+    let mut cells = Cells::new(virt_w, virt_h);
+    
+    for y in 0..h
+    {
+        for x in 0..w
+        {
+            if fastrand::u32(..100) < chance_preclosed
+            {
+                cells.set(x*2, y*2, Cell::ForceClosed);
+                if x > 0 && cells.contains(x*2-1, y*2)
+                {
+                    cells.set(x*2-1, y*2, Cell::ForceClosed);
+                }
+                if cells.contains(x*2+1, y*2)
+                {
+                    cells.set(x*2+1, y*2, Cell::ForceClosed);
+                }
+                if y > 0 && cells.contains(x*2, y*2-1)
+                {
+                    cells.set(x*2, y*2-1, Cell::ForceClosed);
+                }
+                if cells.contains(x*2, y*2+1)
+                {
+                    cells.set(x*2, y*2+1, Cell::ForceClosed);
+                }
+                println!("set {},{} to closed", x*2, y*2);
+            }
+        }
+    }
+    
+    if REALTIMEPRINT
+    {
+        cells.print((!0, !0), (!0, !0), expander_w, expander_h);
+    }
+    
+    let start_x = fastrand::u32(..w*2)/2*2;
+    let start_y = fastrand::u32(..h*2)/2*2;
+    
+    cells.set(start_x, start_y, Cell::Open);
+    println!("set {},{} to open", start_x, start_y);
+    cells.repaint_walls();
+    
+    if REALTIMEPRINT
+    {
+        cells.print((!0, !0), (!0, !0), expander_w, expander_h);
+        if SLOWMOTION
+        {
+            std::thread::sleep(std::time::Duration::from_millis(1000));
+        }
+    }
+    
+    while !cells.is_done(completion_amount)
+    {
+        cells.open_wall();
+        cells.repaint_walls();
+        if REALTIMEPRINT
+        {
+            cells.print((!0, !0), (!0, !0), expander_w, expander_h);
+        }
+    }
+    
+    println!("done with layout");
+    
+    if SLOWMOTION && REALTIMEPRINT
+    {
+        std::thread::sleep(std::time::Duration::from_millis(1000));
+    }
+    
+    println!("placing entrance/exit");
+    
+    let random_open_cell = ||
+    {
+        let mut cell = (fastrand::u32(..virt_w)/2*2, fastrand::u32(..virt_h)/2*2);
+        while cells.get(cell.0, cell.1) != Cell::Open
+        {
+            cell = (fastrand::u32(..virt_w)/2*2, fastrand::u32(..virt_h)/2*2);
+        }
+        cell
+    };
+    let cell_dist = |a : (u32, u32), b : (u32, u32)|
+    {
+        (a.0 as i32 - b.0 as i32).abs() + (a.1 as i32 - b.1 as i32).abs()
+    };
+    let entrance = random_open_cell();
+    let mut exit = random_open_cell();
+    let mut dist = cell_dist(entrance, exit);
+    let mut min_dist = std::cmp::max(w, h)/2;
+    while (dist as u32) < min_dist
+    {
+        exit = random_open_cell();
+        dist = cell_dist(entrance, exit);
+        if min_dist > 0
+        {
+            min_dist -= 1;
+        }
+    }
+    if entrance == exit
+    {
+        println!("failed...");
+    }
+    if REALTIMEPRINT
+    {
+        cells.print(entrance, exit, expander_w, expander_h);
+        
+        if SLOWMOTION
+        {
+            std::thread::sleep(std::time::Duration::from_millis(1000));
+        }
+    }
+    
+    println!("placing loops");
+    
     for y in 0..virt_h
     {
         for x in 0..virt_w
         {
             // randomly add in loops
-            if x%2 != y%2 && fastrand::u32(..100) < loop_density
+            if x%2 != y%2 && cells.get(x, y) == Cell::Closed && fastrand::u32(..100) < loop_density
             {
-                cells.borrow_mut().get_mut(&(x, y)).unwrap().paint = CellPaint::Open;
+                cells.set(x, y, Cell::Open);
+                if x%2 == 1
+                {
+                    cells.set(x-1, y, Cell::Open);
+                    cells.set(x+1, y, Cell::Open);
+                }
+                if y%2 == 1
+                {
+                    cells.set(x, y-1, Cell::Open);
+                    cells.set(x, y+1, Cell::Open);
+                }
             }
         }
     }
+    if REALTIMEPRINT
+    {
+        cells.print(entrance, exit, expander_w, expander_h);
+    }
+    
+    println!("deleting islands");
+    
+    let mut edge_walls = HashSet::new();
+    for y in 0..virt_h
+    {
+        if cells.get(0, y) != Cell::Open
+        {
+            edge_walls.insert((0, y));
+        }
+    }
+    for x in 0..virt_w
+    {
+        if cells.get(x, 0) != Cell::Open
+        {
+            edge_walls.insert((x, 0));
+        }
+    }
+    
+    let flood_fill_collection = |cells : &Cells, x : u32, y : u32| -> Vec<(u32, u32)>
+    {
+        let mut visited = HashSet::<(u32, u32)>::new();
+        let mut frontier = HashSet::<(u32, u32)>::new();
+        let visit = |frontier : &mut HashSet<_>, visited : &mut HashSet<_>, x, y|
+        {
+            let add_to_frontier = |frontier : &mut HashSet<_>, visited : &mut HashSet<_>, x, y|
+            {
+                if !cells.contains(x, y)
+                {
+                    return;
+                }
+                if cells.get(x, y) != Cell::Open && !visited.contains(&(x, y)) && !frontier.contains(&(x, y))
+                {
+                    frontier.insert((x, y));
+                }
+            };
+            frontier.remove(&(x, y));
+            visited.insert((x, y));
+            if x > 0
+            {
+                add_to_frontier(frontier, visited, x-1, y);
+            }
+            add_to_frontier(frontier, visited, x+1, y);
+            if y > 0
+            {
+                add_to_frontier(frontier, visited, x, y-1);
+            }
+            add_to_frontier(frontier, visited, x, y+1);
+        };
+        
+        visit(&mut frontier, &mut visited, x, y);
+        while frontier.len() > 0
+        {
+            let (x, y) = *frontier.iter().next().unwrap();
+            visit(&mut frontier, &mut visited, x, y);
+        }
+        
+        visited.into_iter().collect()
+    };
+    
+    let mut excluded_walls = HashSet::new();
+    for (x, y) in edge_walls
+    {
+        for wall in flood_fill_collection(&cells, x, y)
+        {
+            excluded_walls.insert(wall);
+        }
+    }
+    
+    let mut islands = Vec::new();
+    
     for y in 0..virt_h
     {
         for x in 0..virt_w
         {
-            if x%2 == 1 && y%2 == 1
+            if cells.get(x, y) != Cell::Open && !excluded_walls.contains(&(x, y))
             {
-                let a_paint = cells.borrow().get(&(x-1, y)).unwrap().paint;
-                let b_paint = cells.borrow().get(&(x+1, y)).unwrap().paint;
-                let c_paint = cells.borrow().get(&(x, y-1)).unwrap().paint;
-                let d_paint = cells.borrow().get(&(x, y+1)).unwrap().paint;
-                match (a_paint, b_paint, c_paint, d_paint)
+                let island = flood_fill_collection(&cells, x, y);
+                islands.push(island.clone());
+                for wall in island
                 {
-                    (CellPaint::Open, CellPaint::Open, CellPaint::Open, CellPaint::Open) =>
-                    {
-                        if fastrand::u32(..100) < open_space_chance
-                        {
-                            cells.borrow_mut().get_mut(&(x, y)).unwrap().paint = CellPaint::Open;
-                        }
-                    }
-                    _ => {}
+                    excluded_walls.insert(wall);
                 }
             }
         }
     }
     
-    let random_cell = ||
+    for island in islands.iter()
     {
-        (fastrand::u32(..w*2)/2*2, fastrand::u32(..w*2)/2*2)
-    };
-    let cell_dist = |a : (u32, u32), b : (u32, u32)|
-    {
-        ((a.0 as i32 - b.0 as i32).abs(), (a.1 as i32 - b.1 as i32).abs())
-    };
-    let entrance = random_cell();
-    let mut exit = random_cell();
-    let mut dist = cell_dist(entrance, exit);
-    while (dist.0 as u32) < w/2 || (dist.1 as u32) < h/2
-    {
-        exit = random_cell();
-        dist = cell_dist(entrance, exit);
-    }
-    
-    println!();
-    for y in 0..virt_h
-    {
-        print!("  ");
-        for x in 0..virt_w
+        if island.len() <= max_island_cull && fastrand::u32(..100) < open_space_chance
         {
-            let cell = cells.borrow().get(&(x, y)).unwrap().paint;
-            if cell == CellPaint::Open
+            for (x, y) in island.iter()
             {
-                if (x, y) == entrance
-                {
-                    print!("█E");
-                }
-                else if (x, y) == exit
-                {
-                    print!("X█");
-                }
-                else
-                {
-                    print!("██");
-                }
-            }
-            else
-            {
-                print!("  ");
+                cells.set(*x, *y, Cell::Open);
             }
         }
-        println!();
     }
+    
+    println!("done");
+    
+    cells.print(entrance, exit, expander_w, expander_h);
 }
 
 fn main()
 {
     generate_map();
-    generate_map();
-    generate_map();
+    println!();
 }
