@@ -245,7 +245,6 @@ fn generate_map()
 {
     #[allow(unused_mut)]
     let mut seed = (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()/100) as u64;
-    seed = 15974244828;
     
     println!("using seed {}", seed);
     if SLOWMOTION && REALTIMEPRINT
