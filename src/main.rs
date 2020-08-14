@@ -32,7 +32,7 @@ impl Cell
     }
 }
 
-fn main()
+fn generate_map()
 {
     let w : u32 = 8;
     let h : u32 = 8;
@@ -212,8 +212,10 @@ fn main()
         dist = cell_dist(entrance, exit);
     }
     
+    println!();
     for y in 0..virt_h
     {
+        print!("  ");
         for x in 0..virt_w
         {
             let cell = cells.borrow().get(&(x, y)).unwrap().paint;
@@ -239,4 +241,11 @@ fn main()
         }
         println!();
     }
+}
+
+fn main()
+{
+    generate_map();
+    generate_map();
+    generate_map();
 }
