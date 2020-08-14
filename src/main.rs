@@ -152,7 +152,7 @@ impl Cells
         }
         return filled*100/max_filled >= amount || accessible == 0;
     }
-    fn print(&self, entrance : (u32, u32), exit : (u32, u32), expander_w : u32, expander_h : u32)
+    fn print(&self, window : &mut pancurses::Window, entrance : (u32, u32), exit : (u32, u32), expander_w : u32, expander_h : u32)
     {
         let mut output = "".to_string();
         for y in 0..self.h
@@ -230,7 +230,16 @@ impl Cells
             }
         }
         output += &"\n";
-        print!("{}", output);
+        window.mvaddstr(2, 0, output);
+        window.refresh();
+        
+        while let Some(c) = window.getch()
+        {
+            if c == pancurses::Input::Character('q')
+            {
+                panic!("force quit");
+            }
+        }
         if SLOWMOTION && REALTIMEPRINT
         {
             std::thread::sleep(std::time::Duration::from_millis(KINDASLOW));
@@ -238,12 +247,12 @@ impl Cells
     }
 }
 
-fn generate_map()
+fn generate_map(window : &mut pancurses::Window)
 {
     #[allow(unused_mut)]
     let mut seed = (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()/100) as u64;
     
-    println!("using seed {}", seed);
+    window.mvaddstr(window.get_max_y()-1, 0, format!("using seed {}", seed));
     if SLOWMOTION && REALTIMEPRINT
     {
         std::thread::sleep(std::time::Duration::from_millis(SUPERSLOW));
@@ -302,33 +311,44 @@ fn generate_map()
                 {
                     cells.set(x*2, y*2+1, Cell::ForceClosed);
                 }
-                println!("set {},{} to closed", x*2, y*2);
+                window.mvaddstr(0, 0, format!("closed {},{}               ", x*2, y*2));
+                cells.print(window, (!0, !0), (!0, !0), expander_w, expander_h);
+                window.refresh();
+                if SLOWMOTION && REALTIMEPRINT
+                {
+                    std::thread::sleep(std::time::Duration::from_millis(KINDASLOW));
+                }
             }
         }
+    }
+    if SLOWMOTION && REALTIMEPRINT
+    {
+        std::thread::sleep(std::time::Duration::from_millis(SUPERSLOW));
     }
     
     if REALTIMEPRINT
     {
-        cells.print((!0, !0), (!0, !0), expander_w, expander_h);
+        cells.print(window, (!0, !0), (!0, !0), expander_w, expander_h);
     }
     
     let start_x = fastrand::u32(..w*2)/2*2;
     let start_y = fastrand::u32(..h*2)/2*2;
     
     cells.set(start_x, start_y, Cell::Open);
-    println!("set {},{} to open", start_x, start_y);
     cells.repaint_walls();
     
-    println!("generating layout");
+    window.mvaddstr(0, 0, format!("set {},{} to open      ", start_x, start_y));
     
     if REALTIMEPRINT
     {
-        cells.print((!0, !0), (!0, !0), expander_w, expander_h);
+        cells.print(window, (!0, !0), (!0, !0), expander_w, expander_h);
         if SLOWMOTION
         {
             std::thread::sleep(std::time::Duration::from_millis(SUPERSLOW));
         }
     }
+    
+    window.mvaddstr(0, 0, "generating layout      ");
     
     while !cells.is_done(completion_amount)
     {
@@ -336,16 +356,11 @@ fn generate_map()
         cells.repaint_walls();
         if REALTIMEPRINT
         {
-            cells.print((!0, !0), (!0, !0), expander_w, expander_h);
+            cells.print(window, (!0, !0), (!0, !0), expander_w, expander_h);
         }
     }
     
-    println!("placing entrance/exit");
-    
-    if SLOWMOTION && REALTIMEPRINT
-    {
-        std::thread::sleep(std::time::Duration::from_millis(SUPERSLOW));
-    }
+    window.mvaddstr(0, 0, "placing entrance/exit       ");
     
     let random_open_cell = ||
     {
@@ -375,15 +390,15 @@ fn generate_map()
     }
     if entrance == exit
     {
-        println!("failed...");
+        window.mvaddstr(0, 1, "!!! entrance/exit overlap");
     }
     
     if REALTIMEPRINT
     {
-        cells.print(entrance, exit, expander_w, expander_h);
+        cells.print(window, entrance, exit, expander_w, expander_h);
     }
     
-    println!("placing loops");
+    window.mvaddstr(0, 0, "placing loops            ");
     
     if REALTIMEPRINT && SLOWMOTION
     {
@@ -410,7 +425,7 @@ fn generate_map()
                 }
                 if REALTIMEPRINT
                 {
-                    cells.print(entrance, exit, expander_w, expander_h);
+                    cells.print(window, entrance, exit, expander_w, expander_h);
                 }
             }
         }
@@ -418,10 +433,11 @@ fn generate_map()
     
     if REALTIMEPRINT
     {
-        cells.print(entrance, exit, expander_w, expander_h);
+        cells.print(window, entrance, exit, expander_w, expander_h);
     }
     
-    println!("deleting islands");
+    
+    window.mvaddstr(0, 0, "deleting random islands         ");
     
     if REALTIMEPRINT && SLOWMOTION
     {
@@ -531,18 +547,22 @@ fn generate_map()
             }
             if REALTIMEPRINT
             {
-                cells.print(entrance, exit, expander_w, expander_h);
+                cells.print(window, entrance, exit, expander_w, expander_h);
             }
         }
     }
     
-    println!("done");
+    window.mvaddstr(0, 0, "done   press q to quit               ");
     
-    cells.print(entrance, exit, expander_w, expander_h);
+    cells.print(window, entrance, exit, expander_w, expander_h);
 }
 
 fn main()
 {
-    generate_map();
-    println!();
+    let mut window = pancurses::initscr();
+    window.nodelay(true);
+    generate_map(&mut window);
+    window.nodelay(false);
+    window.getch();
+    pancurses::endwin();
 }

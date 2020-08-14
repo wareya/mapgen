@@ -8,3 +8,7 @@ edition = "2018"
 
 [dependencies]
 fastrand = "1.3.4"
+
+[dependencies.pancurses]
+version = "0.16"
+features = ["win32"]
