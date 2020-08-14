@@ -248,7 +248,7 @@ fn generate_map()
     let w : u32 = 6;
     let h : u32 = 5;
     let loop_density = 20;
-    let open_space_chance = 50;
+    let loop_deletion_chance = 50;
     let max_island_cull = 2;
     let expander_w = 5;
     let expander_h = 3;
@@ -499,7 +499,7 @@ fn generate_map()
     
     for island in islands.iter()
     {
-        if island.len() <= max_island_cull && fastrand::u32(..100) < open_space_chance
+        if island.len() <= max_island_cull && fastrand::u32(..100) < loop_deletion_chance
         {
             for (x, y) in island.iter()
             {
