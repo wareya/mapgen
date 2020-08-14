@@ -242,6 +242,7 @@ fn generate_map()
 {
     #[allow(unused_mut)]
     let mut seed = (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()/100) as u64;
+    seed = 15974244828;
     
     println!("using seed {}", seed);
     if SLOWMOTION && REALTIMEPRINT
@@ -250,8 +251,8 @@ fn generate_map()
     }
     fastrand::seed(seed);
     
-    let w : u32 = 32;
-    let h : u32 = 17;
+    let w : u32 = 16;
+    let h : u32 = 16;
     
     let loop_density = 20;
     let loop_deletion_chance = 75;
@@ -259,6 +260,7 @@ fn generate_map()
     let chance_preclosed = 20;
     let completion_amount_min = 80;
     let completion_amount_max = 100;
+    let tiny_dead_end_deletion_rate = 80;
     
     let expander_w = 1;
     let expander_h = 1;
@@ -532,6 +534,139 @@ fn generate_map()
             if REALTIMEPRINT
             {
                 cells.print(entrance, exit, expander_w, expander_h);
+            }
+        }
+    }
+    
+    println!("deleting tiny dead ends");
+    
+    if REALTIMEPRINT && SLOWMOTION
+    {
+        std::thread::sleep(std::time::Duration::from_millis(SUPERSLOW));
+    }
+    
+    
+    for y in 0..h
+    {
+        let y = y*2;
+        for x in 0..w
+        {
+            let x = x*2;
+            if entrance == (x, y) || exit == (x, y)
+            {
+                continue;
+            }
+            if cells.get(x, y) == Cell::Open
+            {
+                let mut num_open_sides = 0;
+                if x > 0 && cells.get(x-1, y) == Cell::Open
+                {
+                    num_open_sides += 1;
+                }
+                if x < virt_w-1 && cells.get(x+1, y) == Cell::Open
+                {
+                    num_open_sides += 1;
+                }
+                if y > 0 && cells.get(x, y-1) == Cell::Open
+                {
+                    num_open_sides += 1;
+                }
+                if y < virt_h-1 && cells.get(x, y+1) == Cell::Open
+                {
+                    num_open_sides += 1;
+                }
+                if num_open_sides == 1
+                {
+                    let mut open_paths = 0;
+                    if fastrand::u32(..100) >= tiny_dead_end_deletion_rate
+                    {
+                        continue;
+                    }
+                    if x > 0 && cells.get(x-1, y) == Cell::Open
+                    {
+                        if y > 0 && cells.get(x-2, y-1) == Cell::Open
+                        {
+                            open_paths += 1;
+                        }
+                        if x > 2 && cells.get(x-3, y) == Cell::Open
+                        {
+                            open_paths += 1;
+                        }
+                        if y < virt_h-1 && cells.get(x-2, y+1) == Cell::Open
+                        {
+                            open_paths += 1;
+                        }
+                        if open_paths > 1
+                        {
+                            cells.set(x, y, Cell::Closed);
+                            cells.set(x-1, y, Cell::Closed);
+                            cells.print(entrance, exit, expander_w, expander_h);
+                        }
+                    }
+                    else if x < virt_w-1 && cells.get(x+1, y) == Cell::Open
+                    {
+                        if y > 0 && cells.get(x+2, y-1) == Cell::Open
+                        {
+                            open_paths += 1;
+                        }
+                        if x < virt_w-3 && cells.get(x+3, y) == Cell::Open
+                        {
+                            open_paths += 1;
+                        }
+                        if y < virt_h-1 && cells.get(x+2, y+1) == Cell::Open
+                        {
+                            open_paths += 1;
+                        }
+                        if open_paths > 1
+                        {
+                            cells.set(x, y, Cell::Closed);
+                            cells.set(x+1, y, Cell::Closed);
+                            cells.print(entrance, exit, expander_w, expander_h);
+                        }
+                    }
+                    else if y > 0 && cells.get(x, y-1) == Cell::Open
+                    {
+                        if x > 0 && cells.get(x-1, y-2) == Cell::Open
+                        {
+                            open_paths += 1;
+                        }
+                        if y > 2 && cells.get(x, y-3) == Cell::Open
+                        {
+                            open_paths += 1;
+                        }
+                        if x < virt_w-1 && cells.get(x+1, y-2) == Cell::Open
+                        {
+                            open_paths += 1;
+                        }
+                        if open_paths > 1
+                        {
+                            cells.set(x, y, Cell::Closed);
+                            cells.set(x, y-1, Cell::Closed);
+                            cells.print(entrance, exit, expander_w, expander_h);
+                        }
+                    }
+                    else if y < virt_w-1 && cells.get(x, y+1) == Cell::Open
+                    {
+                        if x > 0 && cells.get(x-1, y+2) == Cell::Open
+                        {
+                            open_paths += 1;
+                        }
+                        if y < virt_h-3 && cells.get(x, y+3) == Cell::Open
+                        {
+                            open_paths += 1;
+                        }
+                        if x < virt_w-1 && cells.get(x+1, y+2) == Cell::Open
+                        {
+                            open_paths += 1;
+                        }
+                        if open_paths > 1
+                        {
+                            cells.set(x, y, Cell::Closed);
+                            cells.set(x, y+1, Cell::Closed);
+                            cells.print(entrance, exit, expander_w, expander_h);
+                        }
+                    }
+                }
             }
         }
     }
