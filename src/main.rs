@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-const SLOWMOTION : bool = true;
+const SLOWMOTION : bool = false;
 const REALTIMEPRINT : bool = true;
 
 const SUPERSLOW : u64 = 1000;
@@ -93,11 +93,14 @@ impl Cells
     fn open_wall(&mut self)
     {
         let mut open_walls = Vec::<(u32, u32)>::new();
-        for (coord, cell) in self.cells.iter()
+        for x in 0..self.w
         {
-            if *cell == Cell::Accessible
+            for y in 0..self.h
             {
-                open_walls.push(*coord);
+                if self.get(x, y) == Cell::Accessible
+                {
+                    open_walls.push((x, y));
+                }
             }
         }
         if open_walls.is_empty()
