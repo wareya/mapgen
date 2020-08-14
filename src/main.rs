@@ -4,7 +4,7 @@ const SLOWMOTION : bool = true;
 const REALTIMEPRINT : bool = true;
 
 const SUPERSLOW : u64 = 1000;
-const KINDASLOW : u64 = 50;
+const KINDASLOW : u64 = 25;
 
 #[derive(Copy)]
 #[derive(Clone)]
@@ -250,12 +250,12 @@ fn generate_map()
     }
     fastrand::seed(seed);
     
-    let w : u32 = 16;
-    let h : u32 = 16;
+    let w : u32 = 32;
+    let h : u32 = 17;
     
     let loop_density = 20;
     let loop_deletion_chance = 75;
-    let max_island_cull = 25;
+    let max_island_cull = 35;
     let chance_preclosed = 20;
     let completion_amount_min = 80;
     let completion_amount_max = 100;
