@@ -255,7 +255,6 @@ fn generate_map(window : &mut pancurses::Window)
     #[allow(unused_mut)]
     #[allow(unused_assignments)]
     let mut seed = (std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis()/100) as u64;
-    seed = 15974285795;
     
     window.mvaddstr(window.get_max_y()-1, 0, format!("using seed {}", seed));
     window.refresh();
